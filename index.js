@@ -31,6 +31,7 @@ async function run() {
 
     const db = client.db("smartDeals_db");
     const productCollections = db.collection("products");
+    const bidCollections = db.collection("bids");
 
     //create data
     app.post("/products", async (req, res) => {
@@ -76,6 +77,27 @@ async function run() {
       const query = { _id: new ObjectId(id) };
       const deleteData = await productCollections.deleteOne(query);
       res.send(deleteData);
+    });
+
+    //===============bids api=====================//
+
+    //create bids
+    app.post("/", async (req, res) => {
+      const body = req.body;
+      const result = await bidCollections.insertOne(body);
+      res.send(result);
+    });
+
+    //read bids with query
+    app.get("/bids", async (req, res) => {
+      const email = req.query.email;
+      const query = {};
+      if (email) {
+        query.buyer_email = email;
+      }
+      const cursor = bidCollections.find(query);
+      const result = await cursor.toArray();
+      res.send(result);
     });
 
     await client.db("admin").command({ ping: 1 });
