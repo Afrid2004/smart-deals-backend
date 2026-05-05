@@ -32,6 +32,27 @@ async function run() {
     const db = client.db("smartDeals_db");
     const productCollections = db.collection("products");
     const bidCollections = db.collection("bids");
+    const userCollections = db.collection("users");
+
+    //create user
+    app.post("/users", async (req, res) => {
+      const user = req.body;
+      const email = req.body.email;
+      const query = {
+        email: email,
+      };
+      const isExist = await userCollections.findOne(query);
+      if (isExist) {
+        res.send({
+          message:
+            "User email already exist. Please try another email or account",
+        });
+        return;
+      } else {
+        const result = await userCollections.insertOne(user);
+        res.send(result);
+      }
+    });
 
     //create data
     app.post("/products", async (req, res) => {
@@ -79,12 +100,28 @@ async function run() {
       res.send(deleteData);
     });
 
+    //latest products
+    app.get("/latest-products", async (req, res) => {
+      const cursor = productCollections.find().sort({ created_at: 1 }).limit(6);
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
     //===============bids api=====================//
 
     //create bids
-    app.post("/", async (req, res) => {
+    app.post("/bids", async (req, res) => {
       const body = req.body;
       const result = await bidCollections.insertOne(body);
+      res.send(result);
+    });
+
+    //read product all bids
+    app.get("/products/bid/:productID", async (req, res) => {
+      const productID = req.params.productID;
+      const query = { product: productID };
+      const cursor = bidCollections.find(query).sort({ bid_price: -1 });
+      const result = await cursor.toArray();
       res.send(result);
     });
 
