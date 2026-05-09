@@ -1,13 +1,13 @@
 //creating server
 const express = require("express");
 const app = express();
+require("dotenv").config();
 const cors = require("cors");
 const port = process.env.PORT || 3000;
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 //connecting to database
-const uri =
-  "mongodb+srv://smart_deals:Afrid_Smart_Deals_5433@cluster0.irfgud5.mongodb.net/?appName=Cluster0";
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.irfgud5.mongodb.net/?appName=Cluster0`;
 
 //middleware
 app.use(cors());
@@ -116,7 +116,15 @@ async function run() {
       res.send(result);
     });
 
-    //read product all bids
+    //delete bids
+    app.delete("/bids/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await bidCollections.deleteOne(query);
+      res.send(result);
+    });
+
+    //read bids by product
     app.get("/products/bid/:productID", async (req, res) => {
       const productID = req.params.productID;
       const query = { product: productID };
@@ -125,7 +133,7 @@ async function run() {
       res.send(result);
     });
 
-    //read bids with query
+    //read bids with specific user email query
     app.get("/bids", async (req, res) => {
       const email = req.query.email;
       const query = {};
@@ -133,8 +141,17 @@ async function run() {
         query.buyer_email = email;
       }
       const cursor = bidCollections.find(query);
-      const result = await cursor.toArray();
-      res.send(result);
+      const bids = await cursor.toArray();
+
+      //bids wise product
+      for (let bid of bids) {
+        const productQuery = {
+          _id: new ObjectId(bid.product),
+        };
+        let product = await productCollections.findOne(productQuery);
+        bid.productData = product;
+      }
+      res.send(bids);
     });
 
     await client.db("admin").command({ ping: 1 });
