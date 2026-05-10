@@ -52,8 +52,8 @@ const verifyJWTtoken = (req, res, next) => {
 //     return res.status(401).send({ message: "Unauthorized User" });
 //   }
 //   try {
-//     const userInfo = await admin.auth().verifyIdToken(token);
-//     req.token_email = userInfo.email;
+//     const decoded = await admin.auth().verifyIdToken(token);
+//     req.token_email = decoded.email;
 //     next();
 //   } catch {
 //     return res.status(401).send({ message: "Unauthorized User" });
@@ -199,7 +199,7 @@ async function run() {
         }
         query.buyer_email = email;
       }
-      const cursor = bidCollections.find(query);
+      const cursor = bidCollections.find(query).sort({ bid_price: -1 });
       const bids = await cursor.toArray();
       for (let bid of bids) {
         const productQuery = {
