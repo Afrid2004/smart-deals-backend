@@ -5,6 +5,16 @@ require("dotenv").config();
 const cors = require("cors");
 const port = process.env.PORT || 3000;
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+const jwt = require("jsonwebtoken");
+//firebase Token(optional if we not use jwt)
+// const admin = require("firebase-admin");
+
+//firabase admin sdk (optional if we not use jwt)
+// var serviceAccount = require("./smart-deals-firebase-adminsdk.json");
+
+// admin.initializeApp({
+//   credential: admin.credential.cert(serviceAccount),
+// });
 
 //connecting to database
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.irfgud5.mongodb.net/?appName=Cluster0`;
@@ -12,6 +22,43 @@ const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@clu
 //middleware
 app.use(cors());
 app.use(express.json());
+
+//jwt middleware
+const verifyJWTtoken = (req, res, next) => {
+  const authorization = req.headers.authorization;
+  if (!authorization) {
+    return res.status(401).send({ message: "unathorized user" });
+  }
+  const token = authorization.split(" ")[1];
+  if (!token) {
+    return res.status(401).send({ message: "unathorized user" });
+  }
+  jwt.verify(token, process.env.JWT_SECRET_TOKEN, function (err, decoded) {
+    if (err) {
+      return res.status(401).send({ message: "unathorized user" });
+    }
+    req.token_email = decoded.email;
+    next();
+  });
+};
+
+// firebase Middleware(optional if we not use jwt)
+// const verifyFirebaseToken = async (req, res, next) => {
+//   if (!req.headers.authorization) {
+//     return res.status(401).send({ message: "Unauthorized User" });
+//   }
+//   const token = req.headers.authorization.split(" ")[1];
+//   if (!token) {
+//     return res.status(401).send({ message: "Unauthorized User" });
+//   }
+//   try {
+//     const userInfo = await admin.auth().verifyIdToken(token);
+//     req.token_email = userInfo.email;
+//     next();
+//   } catch {
+//     return res.status(401).send({ message: "Unauthorized User" });
+//   }
+// };
 
 app.get("/", (req, res) => {
   res.send("Smart server is running");
@@ -33,6 +80,15 @@ async function run() {
     const productCollections = db.collection("products");
     const bidCollections = db.collection("bids");
     const userCollections = db.collection("users");
+
+    //get JWT token (optional if we use firebase SDK)
+    app.post("/get-jwt-token", (req, res) => {
+      const emailBody = req.body;
+      const token = jwt.sign(emailBody, process.env.JWT_SECRET_TOKEN, {
+        expiresIn: "1h",
+      });
+      res.send({ token });
+    });
 
     //create user
     app.post("/users", async (req, res) => {
@@ -133,17 +189,18 @@ async function run() {
       res.send(result);
     });
 
-    //read bids with specific user email query
-    app.get("/bids", async (req, res) => {
+    //read bids with specific user email query with JWT token
+    app.get("/bids", verifyJWTtoken, async (req, res) => {
       const email = req.query.email;
       const query = {};
       if (email) {
+        if (email !== req.token_email) {
+          return res.status(403).send({ message: "Forbidden Access" });
+        }
         query.buyer_email = email;
       }
       const cursor = bidCollections.find(query);
       const bids = await cursor.toArray();
-
-      //bids wise product
       for (let bid of bids) {
         const productQuery = {
           _id: new ObjectId(bid.product),
@@ -153,6 +210,31 @@ async function run() {
       }
       res.send(bids);
     });
+
+    //read bids with specific user email query with firebase sdk (optinal if we not use JWT) token
+    // app.get("/bids", logger, verifyFirebaseToken, async (req, res) => {
+    //   const email = req.query.email;
+    //   const token = req.headers;
+    //   const query = {};
+    //   if (email) {
+    //     if (email !== req.token_email) {
+    //       return res.status(403).send({ message: "Forbidden Access" });
+    //     }
+    //     query.buyer_email = email;
+    //   }
+    //   const cursor = bidCollections.find(query);
+    //   const bids = await cursor.toArray();
+
+    //   //bids wise product
+    //   for (let bid of bids) {
+    //     const productQuery = {
+    //       _id: new ObjectId(bid.product),
+    //     };
+    //     let product = await productCollections.findOne(productQuery);
+    //     bid.productData = product;
+    //   }
+    //   res.send(bids);
+    // });
 
     await client.db("admin").command({ ping: 1 });
     console.log(
