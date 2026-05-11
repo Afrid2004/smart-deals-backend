@@ -113,6 +113,16 @@ async function run() {
     //create data
     app.post("/products", async (req, res) => {
       const body = req.body;
+      const query = {
+        email: body.email,
+        title: body.title,
+      };
+      const isExist = await productCollections.findOne(query);
+      if (isExist) {
+        return res.send({
+          message: "Product Already Exist. Please try another one.",
+        });
+      }
       const insertData = await productCollections.insertOne(body);
       res.send(insertData);
     });
@@ -125,7 +135,7 @@ async function run() {
     });
 
     //read a specefic data
-    app.get("/products/:id", async (req, res) => {
+    app.get("/products/:id", verifyJWTtoken, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await productCollections.findOne(query);
@@ -158,7 +168,10 @@ async function run() {
 
     //latest products
     app.get("/latest-products", async (req, res) => {
-      const cursor = productCollections.find().sort({ created_at: 1 }).limit(6);
+      const cursor = productCollections
+        .find()
+        .sort({ created_at: -1 })
+        .limit(6);
       const result = await cursor.toArray();
       res.send(result);
     });
@@ -195,6 +208,7 @@ async function run() {
       const query = {};
       if (email) {
         if (email !== req.token_email) {
+          console.log("bad request");
           return res.status(403).send({ message: "Forbidden Access" });
         }
         query.buyer_email = email;
