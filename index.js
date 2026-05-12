@@ -10,7 +10,10 @@ const jwt = require("jsonwebtoken");
 // const admin = require("firebase-admin");
 
 //firabase admin sdk (optional if we not use jwt)
-// var serviceAccount = require("./smart-deals-firebase-adminsdk.json");
+// const decoded = Buffer.from(process.env.FIREBASE_SERVICE_KEY, "base64").toString(
+//   "utf8",
+// );
+// const serviceAccount = JSON.parse(decoded);
 
 // admin.initializeApp({
 //   credential: admin.credential.cert(serviceAccount),
@@ -20,7 +23,11 @@ const jwt = require("jsonwebtoken");
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.irfgud5.mongodb.net/?appName=Cluster0`;
 
 //middleware
-app.use(cors());
+app.use(
+  cors({
+    origin: ["http://localhost:5173", "https://my-smart-deals.vercel.app"],
+  }),
+);
 app.use(express.json());
 
 //jwt middleware
@@ -170,6 +177,7 @@ async function run() {
     app.get("/latest-products", async (req, res) => {
       const cursor = productCollections
         .find()
+        .project({ title: 1, _id: 1, price_min: 1, price_max: 1, image: 1 }) // keys that I just want on my api
         .sort({ created_at: -1 })
         .limit(6);
       const result = await cursor.toArray();
@@ -250,7 +258,7 @@ async function run() {
     //   res.send(bids);
     // });
 
-    await client.db("admin").command({ ping: 1 });
+    // await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!",
     );
