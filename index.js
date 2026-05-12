@@ -134,11 +134,39 @@ async function run() {
       res.send(insertData);
     });
 
-    //read data
+    //read data (searching & sorting included)
     app.get("/products", async (req, res) => {
-      const cursor = productCollections.find();
-      const allValues = await cursor.toArray();
-      res.send(allValues);
+      const {
+        limit = 6,
+        skip = 0,
+        sort = "created_at",
+        order = "desc",
+        search = "",
+      } = req.query; //skip=0, sort="created_at", order="desc"... are default values
+
+      //sorting
+      const sortingOptions = {};
+      sortingOptions[sort || "created_at"] = order === "asc" ? 1 : -1;
+
+      //searching
+      let query = {};
+      if (search) {
+        query.title = { $regex: search, $options: "i" };
+      }
+
+      //total product count
+      let total = await productCollections.countDocuments(query);
+
+      const cursor = productCollections.find(query);
+
+      //searching,sorting api
+      const allValues = await cursor
+        .sort(sortingOptions)
+        .limit(Number(limit))
+        .skip(Number(skip))
+        .toArray();
+
+      res.send({ data: allValues, total });
     });
 
     //read a specefic data
