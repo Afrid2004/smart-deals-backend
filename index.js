@@ -173,6 +173,15 @@ async function run() {
       }
     });
 
+    //read bids by product
+    app.get("/products/bid/:productID", async (req, res) => {
+      const productID = req.params.productID;
+      const query = { product: productID };
+      const cursor = bidCollections.find(query).sort({ bid_price: -1 });
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
     //read a specefic data
     app.get("/products/:id", verifyJWTtoken, async (req, res) => {
       const id = req.params.id;
@@ -230,15 +239,6 @@ async function run() {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await bidCollections.deleteOne(query);
-      res.send(result);
-    });
-
-    //read bids by product
-    app.get("/products/bid/:productID", async (req, res) => {
-      const productID = req.params.productID;
-      const query = { product: productID };
-      const cursor = bidCollections.find(query).sort({ bid_price: -1 });
-      const result = await cursor.toArray();
       res.send(result);
     });
 
