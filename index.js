@@ -173,6 +173,45 @@ async function run() {
       }
     });
 
+    // read user product who created the product
+    app.get("/my-product", verifyJWTtoken, async (req, res) => {
+      const decodedEmail = req.token_email;
+      const {
+        limit = 6,
+        skip = 0,
+        sort = "created_at",
+        order = "desc",
+        search = "",
+        email,
+      } = req.query;
+
+      //sort
+      const sortOptions = {};
+      sortOptions[sort || "created_at"] = order === "asc" ? 1 : -1;
+
+      //search
+      let query = {};
+      if (email) {
+        if (email !== decodedEmail) {
+          return res.status(403).send({ message: "Forbidden Access" });
+        }
+        query.email = email;
+      }
+      if (search) {
+        query.title = { $regex: search, $options: "i" };
+      }
+
+      const total = await productCollections.countDocuments(query);
+      const data = await productCollections
+        .find(query)
+        .sort(sortOptions)
+        .skip(Number(skip))
+        .limit(Number(limit))
+        .toArray();
+
+      res.send({ data, total });
+    });
+
     //read bids by product
     app.get("/products/bid/:productID", async (req, res) => {
       const productID = req.params.productID;
@@ -207,9 +246,20 @@ async function run() {
     });
 
     //delete data
-    app.delete("/products/:id", async (req, res) => {
+    app.delete("/products/:id", verifyJWTtoken, async (req, res) => {
       const id = req.params.id;
+      const email = req.token_email;
       const query = { _id: new ObjectId(id) };
+      const product = await productCollections.findOne(query);
+
+      if (!product) {
+        return res.status(404).send({ message: "Product not found" });
+      }
+
+      if (product.email !== email) {
+        return res.status(403).send({ message: "Forbidden Access" });
+      }
+
       const deleteData = await productCollections.deleteOne(query);
       res.send(deleteData);
     });
