@@ -216,12 +216,30 @@ async function run() {
     });
 
     //read bids by product
-    app.get("/products/bid/:productID", async (req, res) => {
-      const productID = req.params.productID;
-      const query = { product: productID };
-      const cursor = bidCollections.find(query).sort({ bid_price: -1 });
-      const result = await cursor.toArray();
-      res.send(result);
+    app.get("/products/bid/:productID", verifyJWTtoken, async (req, res) => {
+      try {
+        const productID = req.params.productID;
+        const email = req.token_email;
+        const product = await productCollections.findOne({
+          _id: new ObjectId(productID),
+        });
+        if (!product) {
+          return res.status(404).send({ message: "No product found." });
+        }
+        if (email !== product.email) {
+          return res.status(403).send({ message: "Forbidden access" });
+        }
+        const query = {
+          product: productID,
+        };
+        const cursor = bidCollections.find(query).sort({ bid_price: -1 });
+        const result = await cursor.toArray();
+        res.send(result);
+      } catch (err) {
+        res.status(500).send({
+          message: err.message,
+        });
+      }
     });
 
     //read a specefic data
