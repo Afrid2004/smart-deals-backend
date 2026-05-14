@@ -118,8 +118,11 @@ async function run() {
     });
 
     //create data
-    app.post("/products", async (req, res) => {
+    app.post("/products", verifyJWTtoken, async (req, res) => {
       const body = req.body;
+      if (body.email !== req.token_email) {
+        return res.status(403).send({ message: "Forbidden Access" });
+      }
       const query = {
         email: body.email,
         title: body.title,
@@ -230,15 +233,41 @@ async function run() {
     });
 
     //update data
-    app.patch("/products/:id", async (req, res) => {
+    app.patch("/products/:id", verifyJWTtoken, async (req, res) => {
       const id = req.params.id;
       const body = req.body;
-      const query = { _id: new ObjectId(id) };
+
+      const query = {
+        _id: new ObjectId(id),
+      };
+
+      const product = await productCollections.findOne(query);
+
+      if (!product) {
+        return res.status(404).send({
+          message: "Product not found",
+        });
+      }
+
+      if (product.email !== req.token_email) {
+        return res.status(403).send({ message: "Forbidden Access" });
+      }
+      const duplicateQuery = {
+        email: product.email,
+        title: body.title,
+        _id: { $ne: new ObjectId(id) },
+      };
+
+      const isExist = await productCollections.findOne(duplicateQuery);
+
+      if (isExist) {
+        return res.status(409).send({
+          message: "Product Already Exist. Please try another one.",
+        });
+      }
+
       const update = {
-        $set: {
-          productName: body.productName,
-          price: body.price,
-        },
+        $set: body,
       };
       const options = {};
       const result = await productCollections.updateOne(query, update, options);
